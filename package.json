@@ -2,10 +2,10 @@
   "name": "telegram-ballot-guard",
   "version": "1.0.0",
   "description": "Telegram bot for creating polls and checking voter readiness",
-  "main": "src/index.js",
+  "main": "src/ballot.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "start": "node src/ballot.js",
+    "dev": "nodemon src/ballot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
