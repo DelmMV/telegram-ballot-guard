@@ -1983,16 +1983,33 @@ const checkVotersScene = () => {
 		})}`
 
 		// Update message to show we're creating a poll
+		let creatingPollMessageId = null
 		try {
-			await ctx.editMessageText(
+			// Удалим предыдущее сообщение перед созданием нового
+			const message = await ctx.editMessageText(
 				`${t('scenes.voters.startingPollCreation')}`,
 				Markup.inlineKeyboard([])
 			)
+			// Убедимся, что мы получили действительный ID сообщения
+			if (message && message.message_id) {
+				creatingPollMessageId = message.message_id
+			} else if (ctx.callbackQuery && ctx.callbackQuery.message) {
+				creatingPollMessageId = ctx.callbackQuery.message.message_id
+			}
+
+			logger.debug('Created poll creation message:', {
+				messageId: creatingPollMessageId,
+				chatId: ctx.chat?.id,
+			})
 		} catch (error) {
 			logger.warn(
 				'Could not update message when starting poll creation:',
 				error
 			)
+			// Если не удалось обновить сообщение, используем ID текущего сообщения
+			if (ctx.callbackQuery && ctx.callbackQuery.message) {
+				creatingPollMessageId = ctx.callbackQuery.message.message_id
+			}
 		}
 
 		// Set flag to prevent sending cancelledMessage
@@ -2010,6 +2027,7 @@ const checkVotersScene = () => {
 			compactMode: true, // Signal that we want compact mode
 			suggestedTitle: suggestedTitle, // Pass the suggested title
 			interfaceMessageId: ctx.callbackQuery.message.message_id, // Store interface message ID for cleanup
+			creatingPollMessageId: creatingPollMessageId, // Добавляем ID сообщения "Создание опроса..."
 			messageId: ctx.session.checkVoters.messageId, // Include the poll message ID
 			targetChatId: chatId, // Include target chat ID for creating in the original group
 			fromPrivate: fromPrivate, // Flag indicating if we're in a private chat
