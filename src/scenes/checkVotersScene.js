@@ -75,6 +75,17 @@ const checkVotersScene = () => {
 			try {
 				const { t } = ctx.i18n || { t: key => key }
 				await ctx.answerCbQuery(t('scenes.voters.cancelled'))
+
+				// Delete the creating poll message if it exists
+				if (ctx.session?.checkVoters?.creatingPollMessageId) {
+					await safeDeleteMessage(
+						ctx,
+						ctx.session.checkVoters.creatingPollMessageId,
+						'creating poll message'
+					)
+					ctx.session.checkVoters.creatingPollMessageId = null
+				}
+
 				// Delete the message instead of sending a new one
 				try {
 					await ctx.deleteMessage()
@@ -94,6 +105,17 @@ const checkVotersScene = () => {
 		if (action === 'finish_check') {
 			try {
 				await ctx.answerCbQuery()
+
+				// Delete the creating poll message if it exists
+				if (ctx.session?.checkVoters?.creatingPollMessageId) {
+					await safeDeleteMessage(
+						ctx,
+						ctx.session.checkVoters.creatingPollMessageId,
+						'creating poll message'
+					)
+					ctx.session.checkVoters.creatingPollMessageId = null
+				}
+
 				// Delete the message instead of sending a new one
 				try {
 					await ctx.deleteMessage()
@@ -1997,6 +2019,9 @@ const checkVotersScene = () => {
 				creatingPollMessageId = ctx.callbackQuery.message.message_id
 			}
 
+			// Store the message ID in the session for later deletion
+			ctx.session.checkVoters.creatingPollMessageId = creatingPollMessageId
+
 			logger.debug('Created poll creation message:', {
 				messageId: creatingPollMessageId,
 				chatId: ctx.chat?.id,
@@ -2009,6 +2034,8 @@ const checkVotersScene = () => {
 			// Если не удалось обновить сообщение, используем ID текущего сообщения
 			if (ctx.callbackQuery && ctx.callbackQuery.message) {
 				creatingPollMessageId = ctx.callbackQuery.message.message_id
+				// Store the message ID in the session for later deletion
+				ctx.session.checkVoters.creatingPollMessageId = creatingPollMessageId
 			}
 		}
 
@@ -2040,6 +2067,30 @@ const checkVotersScene = () => {
 
 		// Enter compact poll creation scene with data
 		return ctx.scene.enter('compact-create-poll', { checkData })
+	}
+
+	// Вспомогательная функция для безопасного удаления сообщений
+	const safeDeleteMessage = async (ctx, messageId, description = 'message') => {
+		if (!messageId) return false
+
+		try {
+			logger.debug(`Attempting to delete ${description}:`, { messageId })
+			await ctx.deleteMessage(messageId)
+			return true
+		} catch (error) {
+			// Игнорируем ошибки "message to delete not found", это означает, что сообщение уже удалено
+			if (
+				error.description &&
+				error.description.includes('message to delete not found')
+			) {
+				logger.debug(`${description} already deleted or not found:`, {
+					messageId,
+				})
+			} else {
+				logger.warn(`Could not delete ${description}:`, error)
+			}
+			return false
+		}
 	}
 
 	// Create scene with multiple steps to maintain state between actions
@@ -2074,6 +2125,17 @@ const checkVotersScene = () => {
 			sessionData: JSON.stringify(ctx.session?.checkVoters || {}),
 			stage: ctx.session?.checkVoters?.stage || 'unknown',
 		})
+
+		// Delete the creating poll message if it exists
+		if (ctx.session?.checkVoters?.creatingPollMessageId) {
+			safeDeleteMessage(
+				ctx,
+				ctx.session.checkVoters.creatingPollMessageId,
+				'creating poll message on leave'
+			).catch(error => {
+				logger.warn('Could not delete creating poll message on leave:', error)
+			})
+		}
 
 		if (ctx.scene.state?.silentLeave) {
 			// Skip sending leave message

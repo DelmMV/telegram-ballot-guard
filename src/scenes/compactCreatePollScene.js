@@ -89,6 +89,15 @@ const compactCreatePollScene = () => {
 			return ctx.scene.leave()
 		}
 
+		// If this is a direct /createpoll command (not from checkVoters), clear any previous checkVoters data
+		if (!checkData.fromCheckVoters && ctx.session?.checkVoters) {
+			logger.debug('Clearing previous checkVoters data for fresh poll creation')
+			ctx.session.checkVoters = {
+				chatId: ctx.chat?.id,
+				stage: 'initial',
+			}
+		}
+
 		// Initialize poll data with default state
 		ctx.wizard.state.pollData = {
 			chatId: chatId,
