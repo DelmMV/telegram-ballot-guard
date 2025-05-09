@@ -180,6 +180,16 @@ const checkVotersScene = () => {
 
 				// Get current page and log it
 				const currentPage = ctx.session.checkVoters.pollsPage || 0
+
+				// Only paginate if we have more than 5 polls
+				const totalItems = ctx.session.checkVoters.availablePolls
+					? ctx.session.checkVoters.availablePolls.length
+					: 0
+
+				if (totalItems <= 5) {
+					return await showPolls(ctx)
+				}
+
 				logger.debug('Polls pagination: moving from page', {
 					current: currentPage,
 					direction: 'prev',
@@ -213,6 +223,12 @@ const checkVotersScene = () => {
 				const totalItems = ctx.session.checkVoters.availablePolls
 					? ctx.session.checkVoters.availablePolls.length
 					: 0
+
+				// Only paginate if we have more than 5 polls
+				if (totalItems <= 5) {
+					return await showPolls(ctx)
+				}
+
 				const totalPages = Math.ceil(totalItems / itemsPerPage)
 
 				logger.debug('Polls pagination: moving from page', {
@@ -320,6 +336,19 @@ const checkVotersScene = () => {
 
 				// Get current page and log it
 				const currentPage = sessionData.currentPage
+
+				// Only paginate if we have more than 5 voters
+				const totalItems = Array.isArray(sessionData.selectedVoters)
+					? sessionData.selectedVoters.length
+					: 0
+
+				if (totalItems <= 5) {
+					return await handleOptionSelection(
+						ctx,
+						`option_${sessionData.optionIndex}`
+					)
+				}
+
 				logger.debug('Pagination: moving from page', {
 					current: currentPage,
 					direction: 'prev',
@@ -356,6 +385,15 @@ const checkVotersScene = () => {
 				const totalItems = Array.isArray(sessionData.selectedVoters)
 					? sessionData.selectedVoters.length
 					: 0
+
+				// Only paginate if we have more than 5 voters
+				if (totalItems <= 5) {
+					return await handleOptionSelection(
+						ctx,
+						`option_${sessionData.optionIndex}`
+					)
+				}
+
 				const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage))
 
 				logger.debug('Pagination: moving from page', {
@@ -786,8 +824,8 @@ const checkVotersScene = () => {
 					})
 					.filter(button => button && button.length > 0)
 
-				// Add pagination buttons if there are multiple pages
-				if (totalPages > 1) {
+				// Add pagination buttons if there are multiple pages and more than 5 polls total
+				if (totalPages > 1 && totalPolls > 5) {
 					pollButtons.push([
 						// Кнопка «Предыдущая страница» - отключена на первой странице
 						Markup.button.callback(
@@ -1570,9 +1608,9 @@ const checkVotersScene = () => {
 			const sessionData = ensurePaginationState(ctx)
 			const currentPage = sessionData.currentPage
 
-			// Создаем кнопки для пагинации только если есть больше одной страницы
+			// Создаем кнопки для пагинации только если есть больше одной страницы И больше 5 избирателей
 			let paginationButtons = []
-			if (totalPages > 1) {
+			if (totalPages > 1 && votersList.length > 5) {
 				paginationButtons = [
 					[
 						// Кнопка «Предыдущая страница» - отключена на первой странице
@@ -1630,8 +1668,8 @@ const checkVotersScene = () => {
 				// Создаем сообщение с пагинацией
 				let fullMessage = messageText
 
-				// Добавляем информацию о пагинации, если у нас более одной страницы
-				if (totalVoters > itemsPerPage) {
+				// Добавляем информацию о пагинации только если у нас более 5 избирателей
+				if (totalVoters > 5) {
 					fullMessage += `\n\n${t('voters.page') || 'Page'} ${
 						currentPage + 1
 					}/${Math.ceil(totalVoters / itemsPerPage)}`
@@ -1697,8 +1735,8 @@ const checkVotersScene = () => {
 				const endIndex = Math.min(startIndex + itemsPerPage, totalVoters)
 				const currentPageVoters = votersList.slice(startIndex, endIndex)
 
-				// Добавляем информацию о пагинации, если у нас более одной страницы
-				if (totalVoters > itemsPerPage) {
+				// Добавляем информацию о пагинации только если у нас более 5 избирателей
+				if (totalVoters > 5) {
 					fallbackMessage += `\n\n${t('voters.page') || 'Page'} ${
 						currentPage + 1
 					}/${Math.ceil(totalVoters / itemsPerPage)}`
