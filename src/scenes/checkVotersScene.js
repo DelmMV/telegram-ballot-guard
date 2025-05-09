@@ -161,12 +161,8 @@ const checkVotersScene = () => {
 			}
 		}
 
-		// Poll or pagination info actions (do nothing, just prevent error)
-		if (
-			action === 'poll_info' ||
-			action === 'polls_page_info' ||
-			action === 'polls_page_none'
-		) {
+		// Poll info action (does nothing, just prevents error)
+		if (action === 'poll_info') {
 			await ctx.answerCbQuery()
 			return
 		}
@@ -327,103 +323,9 @@ const checkVotersScene = () => {
 			}
 		}
 
-		// Pagination actions
-		if (action === 'page_prev') {
-			try {
-				await ctx.answerCbQuery()
-				// Ensure we have a valid session with proper pagination state
-				const sessionData = ensurePaginationState(ctx)
+		// Обработчики пагинации удалены, так как пагинация больше не используется
 
-				// Get current page and log it
-				const currentPage = sessionData.currentPage
-
-				// Only paginate if we have more than 5 voters
-				const totalItems = Array.isArray(sessionData.selectedVoters)
-					? sessionData.selectedVoters.length
-					: 0
-
-				if (totalItems <= 5) {
-					return await handleOptionSelection(
-						ctx,
-						`option_${sessionData.optionIndex}`
-					)
-				}
-
-				logger.debug('Pagination: moving from page', {
-					current: currentPage,
-					direction: 'prev',
-					optionIndex: sessionData.optionIndex,
-				})
-
-				// Decrement page counter if not already at the first page
-				if (currentPage > 0) {
-					sessionData.currentPage = currentPage - 1
-				}
-
-				// Re-handle the option selection to refresh the display with new page
-				return await handleOptionSelection(
-					ctx,
-					`option_${sessionData.optionIndex}`
-				)
-			} catch (error) {
-				logger.error('Error handling page_prev action:', error)
-				return
-			}
-		}
-
-		if (action === 'page_next') {
-			try {
-				await ctx.answerCbQuery()
-				// Ensure we have a valid session with proper pagination state
-				const sessionData = ensurePaginationState(ctx)
-
-				// Get current page
-				const currentPage = sessionData.currentPage
-
-				// Calculate number of pages based on voter count
-				const itemsPerPage = 5 // Show 5 voters per page
-				const totalItems = Array.isArray(sessionData.selectedVoters)
-					? sessionData.selectedVoters.length
-					: 0
-
-				// Only paginate if we have more than 5 voters
-				if (totalItems <= 5) {
-					return await handleOptionSelection(
-						ctx,
-						`option_${sessionData.optionIndex}`
-					)
-				}
-
-				const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage))
-
-				logger.debug('Pagination: moving from page', {
-					current: currentPage,
-					direction: 'next',
-					totalPages: totalPages,
-					totalItems: totalItems,
-					optionIndex: sessionData.optionIndex,
-				})
-
-				// Increment page counter if not already at the last page
-				if (currentPage < totalPages - 1) {
-					sessionData.currentPage = currentPage + 1
-				}
-
-				// Re-handle the option selection to refresh the display with new page
-				return await handleOptionSelection(
-					ctx,
-					`option_${sessionData.optionIndex}`
-				)
-			} catch (error) {
-				logger.error('Error handling page_next action:', error)
-				return
-			}
-		}
-
-		if (action === 'page_info' || action === 'page_none') {
-			await ctx.answerCbQuery()
-			return
-		}
+		// Обработчики информации о пагинации удалены
 
 		// Unknown action
 		await ctx.answerCbQuery()
@@ -1173,26 +1075,7 @@ const checkVotersScene = () => {
 		}
 	}
 
-	// Проверка и инициализация состояния сессии для пагинации
-	const ensurePaginationState = ctx => {
-		// Ensure we have valid session data
-		ctx.session = ctx.session || {}
-		ctx.session.checkVoters = ctx.session.checkVoters || {
-			chatId: ctx.chat?.id,
-		}
-
-		// Make sure currentPage is initialized properly
-		if (typeof ctx.session.checkVoters.currentPage !== 'number') {
-			ctx.session.checkVoters.currentPage = 0
-		}
-
-		// Ensure we have selectedVoters array
-		if (!Array.isArray(ctx.session.checkVoters.selectedVoters)) {
-			ctx.session.checkVoters.selectedVoters = []
-		}
-
-		return ctx.session.checkVoters
-	}
+	// Функция проверки состояния сессии удалена, так как пагинация больше не используется
 
 	// Handle option selection
 	const handleOptionSelection = async (ctx, action) => {
@@ -1209,18 +1092,20 @@ const checkVotersScene = () => {
 
 		const { t } = ctx.i18n || { t: key => key }
 
-		// Ensure and initialize session data including pagination
-		const sessionData = ensurePaginationState(ctx)
-
+		// Ensure session data exists
+		ctx.session = ctx.session || {}
+		ctx.session.checkVoters = ctx.session.checkVoters || {
+			chatId: ctx.chat?.id
+		}
+			
 		// Log current session state
 		logger.debug('Session before option selection', {
-			sessionData: JSON.stringify(sessionData),
-			currentPage: sessionData.currentPage,
+			sessionData: JSON.stringify(ctx.session.checkVoters),
 			action: action,
 		})
 
 		// Update the stage in session
-		sessionData.stage = 'show_voters'
+		ctx.session.checkVoters.stage = 'show_voters'
 
 		// Ensure we have a messageId in the session
 		if (!ctx.session.checkVoters.messageId) {
@@ -1534,14 +1419,7 @@ const checkVotersScene = () => {
 			ctx.session.checkVoters.selectedOption = optionText
 			ctx.session.checkVoters.optionIndex = optionIndex
 
-			// Ensure we initialize pagination at the first page when selecting a new option
-			// Preserve the current page if we're just paging through results
-			if (
-				action.startsWith('option_') &&
-				!ctx.callbackQuery?.data?.startsWith('page_')
-			) {
-				ctx.session.checkVoters.currentPage = 0 // Инициализация пагинации с первой страницы
-			}
+			// Пагинация больше не используется
 
 			logger.debug('Saved voter data to session', {
 				pollId: poll._id.toString(),
@@ -1601,39 +1479,8 @@ const checkVotersScene = () => {
 			const itemsPerPage = 5
 
 			// Create action buttons
-			// Пагинация списка избирателей - 5 строк на страницу
-			const totalPages = Math.ceil(votersList.length / itemsPerPage)
-
-			// Get pagination state
-			const sessionData = ensurePaginationState(ctx)
-			const currentPage = sessionData.currentPage
-
-			// Создаем кнопки для пагинации только если есть больше одной страницы И больше 5 избирателей
-			let paginationButtons = []
-			if (totalPages > 1 && votersList.length > 5) {
-				paginationButtons = [
-					[
-						// Кнопка «Предыдущая страница» - отключена на первой странице
-						Markup.button.callback(
-							`◀️ ${t('scenes.common.prevButton') || 'Prev'}`,
-							currentPage > 0 ? 'page_prev' : 'page_none',
-							currentPage === 0
-						),
-						// Информация о текущей странице
-						Markup.button.callback(
-							`${currentPage + 1}/${totalPages}`,
-							'page_info'
-						),
-						// Кнопка «Следующая страница» - отключена на последней странице
-						Markup.button.callback(
-							`${t('scenes.common.nextButton') || 'Next'} ▶️`,
-							currentPage < totalPages - 1 ? 'page_next' : 'page_none',
-							currentPage >= totalPages - 1
-						),
-					],
-				]
-			}
-
+			// Не используем пагинацию, так как не показываем список
+			
 			const actionButtons = [
 				[
 					Markup.button.callback(
@@ -1641,7 +1488,6 @@ const checkVotersScene = () => {
 						'create_poll_with_users'
 					),
 				],
-				...paginationButtons,
 				[
 					Markup.button.callback(
 						'⬅️ ' + t('scenes.common.backButton'),
@@ -1657,24 +1503,11 @@ const checkVotersScene = () => {
 			]
 
 			try {
-				// Применяем пагинацию к списку избирателей
-				const totalVoters = votersList.length
-				const startIndex = currentPage * itemsPerPage
-				const endIndex = Math.min(startIndex + itemsPerPage, totalVoters)
-
-				// Получаем текущую страницу списка избирателей
-				const currentPageVoters = votersList.slice(startIndex, endIndex)
-
-				// Создаем сообщение с пагинацией
+				// Создаем сообщение без пагинации
 				let fullMessage = messageText
 
-				// Добавляем информацию о пагинации только если у нас более 5 избирателей
-				if (totalVoters > 5) {
-					fullMessage += `\n\n${t('voters.page') || 'Page'} ${
-						currentPage + 1
-					}/${Math.ceil(totalVoters / itemsPerPage)}`
-				}
-
+				// Не отображаем список проголосовавших и пагинацию
+				
 				// Check if the message might be too long for Telegram
 				if (fullMessage.length > 4000) {
 					// If too long, show a simplified message - only count named voters
@@ -1684,12 +1517,7 @@ const checkVotersScene = () => {
 						count: namedVotersCount,
 					})}\n`
 
-					// Добавляем информацию о пагинации, если у нас более одной страницы
-					if (totalVoters > itemsPerPage) {
-						simplifiedMessage += `\n\n${t('voters.page') || 'Page'} ${
-							currentPage + 1
-						}/${Math.ceil(totalVoters / itemsPerPage)}`
-					}
+					// Не отображаем список проголосовавших и пагинацию в упрощенном режиме
 
 					const createPollPrompt = t('scenes.voters.createPollPrompt')
 					if (createPollPrompt) {
@@ -1729,18 +1557,7 @@ const checkVotersScene = () => {
 					count: namedVotersCount,
 				})}\n`
 
-				// Apply pagination in fallback message too
-				const totalVoters = votersList.length
-				const startIndex = currentPage * itemsPerPage
-				const endIndex = Math.min(startIndex + itemsPerPage, totalVoters)
-				const currentPageVoters = votersList.slice(startIndex, endIndex)
-
-				// Добавляем информацию о пагинации только если у нас более 5 избирателей
-				if (totalVoters > 5) {
-					fallbackMessage += `\n\n${t('voters.page') || 'Page'} ${
-						currentPage + 1
-					}/${Math.ceil(totalVoters / itemsPerPage)}`
-				}
+				// Не отображаем список проголосовавших и пагинацию в fallback-сообщении
 
 				// No info about anonymous votes needed
 
