@@ -5,9 +5,16 @@ const logger = require('../utils/logger');
  * @param {import('telegraf').Telegraf} bot - Telegraf bot instance
  */
 const registerHelpCommands = (bot) => {
-  // Start command
+  // Start command - only works in private chats
   bot.command('start', async (ctx) => {
-    await sendWelcomeMessage(ctx);
+    // Check if this is a private chat
+    if (ctx.chat.type === 'private') {
+      await sendWelcomeMessage(ctx);
+    } else {
+      // Optionally, you can ignore the command silently in groups
+      // or uncomment the line below to inform users
+      // await ctx.reply('Эта команда доступна только в личных сообщениях с ботом.');
+    }
   });
   
   // Help command
